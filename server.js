@@ -1,30 +1,51 @@
 import express from "express";
 import cors from "cors";
+import OpenAI from "openai";
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-app.post("/study-plan", (req, res) => {
-  const { name, subjects, hours, examDate } = req.body;
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
-  const plan = `
-STUDENT STUDY PLAN
+app.post("/study-plan", async (req, res) => {
+  try {
+    const { name, subjects, hours, examDate } = req.body;
 
+    const prompt = `
+You are an expert academic mentor.
+
+Create a WEEKLY STUDY PLAN for a student with details:
 Name: ${name}
 Subjects: ${subjects}
-Daily Study Time: ${hours} hours
-Exam Date: ${examDate}
+Daily study hours: ${hours}
+Exam date: ${examDate}
 
-Daily Routine:
-- Morning: Concept study
-- Afternoon: Practice
-- Evening: Revision
-- Sunday: Weekly test
-  `;
+Requirements:
+- Weekly breakdown (Mon–Sun)
+- Daily time blocks
+- Revision strategy
+- Simple language
+- Practical and stress-free
+`;
 
-  res.json({ plan });
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a student productivity coach." },
+        { role: "user", content: prompt }
+      ]
+    });
+
+    const plan = completion.choices[0].message.content;
+
+    res.json({ plan });
+
+  } catch (error) {
+    res.status(500).json({ error: "AI generation failed" });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
